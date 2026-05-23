@@ -11,3 +11,6 @@ wheels/
 
 # artifacts
 states/
+
+# secrets
+.env
