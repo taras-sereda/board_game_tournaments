@@ -1,7 +1,6 @@
 import time
 import jax
 import jax.numpy as jnp
-
 try:
     import anthropic
 except ImportError:
@@ -77,7 +76,7 @@ class OpenAIPlayer:
             try:
                 resp = self.client.chat.completions.create(
                     model=self.model,
-                    max_tokens=1024,
+                    max_completion_tokens=1024,
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_msg},

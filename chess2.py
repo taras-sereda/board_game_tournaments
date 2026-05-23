@@ -41,8 +41,9 @@ def main(args):
     state = init(sub)
     move_history: list[str] = []
     idx = 0
+    max_moves = args.max_moves if args.max_moves is not None else int(1e3)
  
-    while not state.terminated:
+    while not state.terminated and idx < max_moves:
         fen = state_to_fen(state)
         current = int(state.current_player)
         color_name = "White" if current == 0 else "Black"
@@ -102,6 +103,7 @@ if __name__ == "__main__":
                         help="Anthropic model name")
     parser.add_argument("--openai-model", type=str, default="gpt-5.4-nano",
                         help="OpenAI model name")
+    parser.add_argument("--max-moves", type=int, default=None, help="Maximum number of moves to play")
  
     args = parser.parse_args()
     main(args)
