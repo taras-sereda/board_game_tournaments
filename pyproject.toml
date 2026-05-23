@@ -1,0 +1,10 @@
+[project]
+name = "board-game-tournaments"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "jax>=0.10.1",
+    "pgx>=2.6.0",
+]
