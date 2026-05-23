@@ -34,7 +34,7 @@ class AnthropicPlayer:
             try:
                 resp = self.client.messages.create(
                     model=self.model,
-                    max_tokens=32,
+                    max_tokens=1024,
                     system=SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": user_msg}],
                 )
@@ -77,7 +77,7 @@ class OpenAIPlayer:
             try:
                 resp = self.client.chat.completions.create(
                     model=self.model,
-                    max_tokens=32,
+                    max_tokens=1024,
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_msg},
