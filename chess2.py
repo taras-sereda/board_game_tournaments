@@ -24,7 +24,7 @@ def main(args):
         elif name == "openai":
             return OpenAIPlayer(model=args.openai_model)
         elif name == "random":
-            return RandomPlayer()
+            return RandomPlayer(seed=args.seed)
         else:
             raise ValueError(f"Unknown player type: {name}")
  
