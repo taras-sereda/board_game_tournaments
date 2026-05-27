@@ -12,32 +12,32 @@ env = pgx.make("chess")
 init = jax.jit(env.init)
 step = jax.jit(env.step)
  
+def make_player(name, seed):
+    if name == "anthropic":
+        return AnthropicPlayer(model=args.anthropic_model)
+    elif name == "openai":
+        return OpenAIPlayer(model=args.openai_model)
+    elif name == "random":
+        return RandomPlayer(seed=seed)
+    else:
+        raise ValueError(f"Unknown player type: {name}")
  
 def main(args):
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
- 
+
+    rng = jax.random.key(args.seed)
+    rng, sub = jax.random.split(rng)
+    white_player = make_player(args.white, jax.random.key_data(sub)[0].item())
+    rng, sub = jax.random.split(rng)
+    black_player = make_player(args.black, jax.random.key_data(sub)[0].item())
     # Set up players: index 0 = white, index 1 = black
-    def make_player(name, color_label):
-        if name == "anthropic":
-            return AnthropicPlayer(model=args.anthropic_model)
-        elif name == "openai":
-            return OpenAIPlayer(model=args.openai_model)
-        elif name == "random":
-            return RandomPlayer(seed=args.seed)
-        else:
-            raise ValueError(f"Unknown player type: {name}")
- 
-    white_player = make_player(args.white, "White")
-    black_player = make_player(args.black, "Black")
     players = [white_player, black_player]
  
     print(f"White: {white_player.name}")
     print(f"Black: {black_player.name}")
     print()
- 
-    rng = jax.random.PRNGKey(args.seed)
-    rng, sub = jax.random.split(rng)
+
     state = init(sub)
     move_history: list[str] = []
     idx = 0

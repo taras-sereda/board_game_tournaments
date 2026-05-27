@@ -1,12 +1,14 @@
 # Convert SVGs to PNGs
-mkdir -p states/game_000/frames
-for f in states/game_000/state_*.svg; do
+
+dir_name=$1
+mkdir -p ${dir_name}/frames
+for f in ${dir_name}/state_*.svg; do
     name=$(basename "$f" .svg)
-    rsvg-convert "$f" -o "states/game_000/frames/${name}.png"
+    rsvg-convert "$f" -o "${dir_name}/frames/${name}.png"
 done
 
 # Stitch into MP4
-ffmpeg -framerate 1 -i states/game_000/frames/state_%04d.png \
+ffmpeg -framerate 1 -i ${dir_name}/frames/state_%04d.png \
        -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
        -c:v libx264 -pix_fmt yuv420p \
-       states/game_000/game.mp4
+       ${dir_name}/game.mp4

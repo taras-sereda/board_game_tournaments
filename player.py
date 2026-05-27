@@ -55,7 +55,8 @@ class AnthropicPlayer:
         # Fallback: pick a random legal move
         print("  [Anthropic] all retries failed, falling back to random move")
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
-        return int(jax.random.categorical(jax.random.PRNGKey(0), logits))
+        key = jax.random.key(time.time_ns() % (2**32 - 1))
+        return int(jax.random.categorical(key, logits))
 
 class OpenAIPlayer:
     def __init__(self, model: str = "gpt-5.4-nano", max_retries: int = 3):
@@ -99,13 +100,14 @@ class OpenAIPlayer:
  
         print("  [OpenAI] all retries failed, falling back to random move")
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
-        return int(jax.random.categorical(jax.random.PRNGKey(1), logits))
+        key = jax.random.key(time.time_ns() % (2**32 - 1))
+        return int(jax.random.categorical(key, logits))
 
  
 class RandomPlayer:
     """Fallback random player for testing without API keys."""
     def __init__(self, seed: int = 42):
-        self.rng = jax.random.PRNGKey(seed)
+        self.rng = jax.random.key(seed)
         self.name = "Random"
  
     def choose_move(self, state, move_history: list[str]) -> int:
