@@ -17,6 +17,11 @@ def make_player(name, seed):
         return AnthropicPlayer(model=args.anthropic_model)
     elif name == "openai":
         return OpenAIPlayer(model=args.openai_model)
+    elif name == "gpt-oss":
+        return OpenAIPlayer(
+            model=args.openai_model,
+            endpoint=args.openai_endpoint,
+        )
     elif name == "random":
         return RandomPlayer(seed=seed)
     else:
@@ -94,15 +99,17 @@ if __name__ == "__main__":
     parser.add_argument("--no-save", action="store_true", help="Do not save SVG files during play")
  
     parser.add_argument("--white", type=str, default="anthropic",
-                        choices=["anthropic", "openai", "random"],
+                        choices=["anthropic", "openai", "gpt-oss", "random"],
                         help="Player for White (default: anthropic)")
     parser.add_argument("--black", type=str, default="openai",
-                        choices=["anthropic", "openai", "random"],
+                        choices=["anthropic", "openai", "gpt-oss", "random"],
                         help="Player for Black (default: openai)")
     parser.add_argument("--anthropic-model", type=str, default="claude-haiku-4-5",
                         help="Anthropic model name")
     parser.add_argument("--openai-model", type=str, default="gpt-5.4-nano",
                         help="OpenAI model name")
+    parser.add_argument("--openai-endpoint", type=str, default=None,
+                        help="Optional OpenAI-compatible endpoint URL (use for self-hosted vLLM/GPT OSS)")
     parser.add_argument("--max-moves", type=int, default=None, help="Maximum number of moves to play")
  
     args = parser.parse_args()

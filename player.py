@@ -59,19 +59,32 @@ class AnthropicPlayer:
         return int(jax.random.categorical(key, logits))
 
 class OpenAIPlayer:
-    def __init__(self, model: str = "gpt-5.4-nano", max_retries: int = 3):
+    def __init__(
+        self,
+        model: str = "gpt-5.4-nano",
+        endpoint: str | None = None,
+        api_key: str | None = None,
+        max_retries: int = 3,
+    ):
         if openai is None:
             raise ImportError("pip install openai")
-        self.client = openai.OpenAI()
+        client_kwargs = {}
+        if endpoint is not None:
+            client_kwargs["base_url"] = endpoint
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+        client_kwargs["_enforce_credentials"] = False
+        self.client = openai.OpenAI(**client_kwargs)
         self.model = model
         self.max_retries = max_retries
-        self.name = f"OpenAI ({model})"
+        self.name = f"GPT-OSS ({model})" if endpoint is not None else f"OpenAI ({model})"
  
     def choose_move(self, state, move_history: list[str]) -> int:
         fen = state_to_fen(state)
         legal_moves = get_legal_uci_moves(state)
         color = "White" if int(state.current_player) == 0 else "Black"
         user_msg = build_user_prompt(fen, legal_moves, color, move_history)
+        client_name = "GPT-OSS" if self.client.base_url is not None else "OpenAI"
  
         for attempt in range(self.max_retries):
             try:
@@ -88,17 +101,17 @@ class OpenAIPlayer:
                 if uci:
                     aid = uci_to_action_id(uci, state)
                     if aid is not None:
-                        print(f"  [OpenAI] move: {uci}")
+                        print(f"  [{client_name}] move: {uci}")
                         return aid
                     else:
-                        print(f"  [OpenAI] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
+                        print(f"  [{client_name}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
                 else:
-                    print(f"  [OpenAI] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
+                    print(f"  [{client_name}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
             except Exception as e:
-                print(f"  [OpenAI] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
+                print(f"  [{client_name}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
                 time.sleep(2)
  
-        print("  [OpenAI] all retries failed, falling back to random move")
+        print(f"  [{client_name}] all retries failed, falling back to random move")
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         key = jax.random.key(time.time_ns() % (2**32 - 1))
         return int(jax.random.categorical(key, logits))
