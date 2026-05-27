@@ -3,8 +3,6 @@ import pgx.experimental.chess as ec
 import pgx._src.games.chess as chess_core
 import jax.numpy as jnp
 
-# ─── Action ↔ UCI mapping ───────────────────────────────────────────────────
- 
 def _build_action_uci_maps():
     """Build bidirectional mappings between PGX action indices and UCI move strings."""
     promo_chars = {0: "r", 1: "b", 2: "n"}
@@ -81,13 +79,9 @@ def uci_to_action_id(uci_move: str, state) -> int | None:
     return None
  
  
-# ─── FEN helper ──────────────────────────────────────────────────────────────
- 
 def state_to_fen(state) -> str:
     return ec.to_fen(state)
  
- 
-# ─── LLM players ────────────────────────────────────────────────────────────
  
 SYSTEM_PROMPT = """\
 You are a chess engine. You will be given a board position as a FEN string and a list of legal moves in UCI notation. Your job is to choose the best move.
