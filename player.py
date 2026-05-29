@@ -133,6 +133,7 @@ class OpenAIPlayer(Player):
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     max_completion_tokens=32000,
+                    reasoning_effort="low",
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         msg,
