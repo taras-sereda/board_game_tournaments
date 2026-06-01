@@ -47,6 +47,11 @@ def test_uci_to_action_roundtrip_black_to_move_after_white_move():
 
 
 def test_black_rotation_is_required_for_uci_to_pgx_lookup():
+    # PGX encodes actions in the mover's frame
+    # so UCI move should be first flipped (vertical mirror: file kept, rank -> 9-rank).
+    # this is only applicable for black to move, since white to move is already in the mover's frame.
+    # example:
+    # black to move: e7e5 (real-board) -> e2e4 (PGX-board mover's frame)
     init, step = _make_env()
     state = init(jax.random.key(0))
 
