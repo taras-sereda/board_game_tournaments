@@ -37,6 +37,7 @@ class AnthropicPlayer(Player):
 
     def __init__(self, model: str = "claude-haiku-4-5", max_retries: int = 3, out_dir: str | Path | None = None):
         super().__init__()
+        self.model_provider = "Anthropic"
         if anthropic is None:
             raise ImportError("pip install anthropic")
         self.client = anthropic.Anthropic()
@@ -61,7 +62,7 @@ class AnthropicPlayer(Player):
                 msg = {"role": "user", "content": user_msg}
                 resp = self.client.messages.create(
                     model=self.model,
-                    max_tokens=32000,
+                    # max_tokens=32000,
                     system=SYSTEM_PROMPT,
                     messages=[msg],
                 )
@@ -75,18 +76,18 @@ class AnthropicPlayer(Player):
                 if uci:
                     aid = uci_to_action_id(uci, state)
                     if aid is not None:
-                        print(f"  [Anthropic] move: {uci}")
+                        print(f"  [{self.model_provider}] move: {uci}")
                         return aid
                     else:
-                        print(f"  [Anthropic] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
+                        print(f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
                 else:
-                    print(f"  [Anthropic] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
+                    print(f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
             except Exception as e:
-                print(f"  [Anthropic] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
+                print(f"  [{self.model_provider}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
                 time.sleep(2)
 
         # Fallback: pick a random legal move
-        print("  [Anthropic] all retries failed, falling back to random move")
+        print(f"  [{self.model_provider}] all retries failed, falling back to random move")
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         key = jax.random.key(time.time_ns() % (2**32 - 1))
         return int(jax.random.categorical(key, logits))
@@ -101,6 +102,7 @@ class OpenAIPlayer(Player):
         out_dir: str | Path | None = None,
     ):
         super().__init__()
+        self.model_provider = "OpenAI"
         if openai is None:
             raise ImportError("pip install openai")
         client_kwargs = {}
@@ -125,15 +127,15 @@ class OpenAIPlayer(Player):
         legal_moves = get_legal_uci_moves(state)
         color = "White" if fen.split()[1] == "w" else "Black"
         user_msg = build_user_prompt(fen, legal_moves, color, move_history)
-        client_name = "GPT-OSS" if self.client.base_url is not None else "OpenAI"
+        
 
         for attempt in range(self.max_retries):
             try:
                 msg = {"role": "user", "content": user_msg}
                 resp = self.client.chat.completions.create(
                     model=self.model,
-                    max_completion_tokens=32000,
-                    reasoning_effort="low",
+                    # max_completion_tokens=32000,
+                    # reasoning_effort="low",
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         msg,
@@ -149,17 +151,17 @@ class OpenAIPlayer(Player):
                 if uci:
                     aid = uci_to_action_id(uci, state)
                     if aid is not None:
-                        print(f"  [{client_name}] move: {uci}")
+                        print(f"  [{self.model_provider}] move: {uci}")
                         return aid
                     else:
-                        print(f"  [{client_name}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
+                        print(f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
                 else:
-                    print(f"  [{client_name}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
+                    print(f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
             except Exception as e:
-                print(f"  [{client_name}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
+                print(f"  [{self.model_provider}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
                 time.sleep(2)
 
-        print(f"  [{client_name}] all retries failed, falling back to random move")
+        print(f"  [{self.model_provider}] all retries failed, falling back to random move")
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         key = jax.random.key(time.time_ns() % (2**32 - 1))
         return int(jax.random.categorical(key, logits))
