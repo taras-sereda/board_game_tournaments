@@ -27,6 +27,21 @@ from util import (
     uci_to_action_id,
 )
 
+ANTHROPIC_MODEL_OPUS_4_8 = "claude-opus-4-8"
+DEFAULT_MAX_TOKENS = 64
+DEFAULT_MAX_TOKENS_WITH_THINKING = 4096
+
+
+def _anthropic_supports_effort(model: str) -> bool:
+    return "haiku" not in model.lower()
+
+
+def _anthropic_response_text(resp) -> str:
+    for block in resp.content:
+        if block.type == "text":
+            return block.text
+    raise ValueError("Anthropic response has no text block")
+
 
 class Player:
     def __init__(self):
@@ -49,6 +64,9 @@ class AnthropicPlayer(Player):
         model: str = "claude-haiku-4-5",
         max_retries: int = 3,
         out_dir: str | Path | None = None,
+        adaptive_thinking: bool = False,
+        effort: str = "low",
+        max_tokens: int | None = None,
     ):
         super().__init__()
         self.model_provider = "Anthropic"
@@ -57,6 +75,15 @@ class AnthropicPlayer(Player):
         self.client = anthropic.Anthropic()
         self.model = model
         self.max_retries = max_retries
+        self.adaptive_thinking = adaptive_thinking
+        self.effort = effort
+        if max_tokens is None:
+            max_tokens = (
+                DEFAULT_MAX_TOKENS_WITH_THINKING
+                if adaptive_thinking
+                else DEFAULT_MAX_TOKENS
+            )
+        self.max_tokens = max_tokens
         self.out_dir = out_dir
         if out_dir:
             log_dir = out_dir / "logs"
@@ -64,6 +91,19 @@ class AnthropicPlayer(Player):
             self.log_dir = log_dir
         else:
             self.log_dir = None
+
+    def _create_message(self, user_msg: str):
+        kwargs = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": user_msg}],
+        }
+        if self.adaptive_thinking:
+            kwargs["thinking"] = {"type": "adaptive"}
+            if _anthropic_supports_effort(self.model):
+                kwargs["output_config"] = {"effort": self.effort}
+        return self.client.messages.create(**kwargs)
 
     def choose_move(self, state, move_history: list[str]) -> int:
         fen = state_to_fen(state)
@@ -74,12 +114,7 @@ class AnthropicPlayer(Player):
         for attempt in range(self.max_retries):
             try:
                 msg = {"role": "user", "content": user_msg}
-                resp = self.client.messages.create(
-                    model=self.model,
-                    # max_tokens=32000,
-                    system=SYSTEM_PROMPT,
-                    messages=[msg],
-                )
+                resp = self._create_message(user_msg)
                 if self.log_dir:
                     req_path = (
                         self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
@@ -90,7 +125,7 @@ class AnthropicPlayer(Player):
                     )
                     self.dump_data(msg, req_path)
                     self.dump_data(resp, resp_path)
-                raw = resp.content[0].text
+                raw = _anthropic_response_text(resp)
                 uci = parse_uci_from_response(raw)
                 if uci:
                     aid = uci_to_action_id(uci, state)
@@ -128,9 +163,11 @@ class OpenAIPlayer(Player):
         api_key: str | None = None,
         max_retries: int = 3,
         out_dir: str | Path | None = None,
+        reasoning_effort: str | None = None,
+        max_completion_tokens: int | None = None,
     ):
         super().__init__()
-        self.model_provider = "OpenAI"
+        self.model_provider = "GPT-OSS" if endpoint is not None else "OpenAI"
         if openai is None:
             raise ImportError("pip install openai")
         client_kwargs = {}
@@ -142,6 +179,14 @@ class OpenAIPlayer(Player):
         self.client = openai.OpenAI(**client_kwargs)
         self.model = model
         self.max_retries = max_retries
+        self.reasoning_effort = reasoning_effort
+        if max_completion_tokens is None:
+            max_completion_tokens = (
+                DEFAULT_MAX_TOKENS_WITH_THINKING
+                if reasoning_effort is not None
+                else DEFAULT_MAX_TOKENS
+            )
+        self.max_completion_tokens = max_completion_tokens
         self.out_dir = out_dir
         if out_dir:
             log_dir = out_dir / "logs"
@@ -149,6 +194,16 @@ class OpenAIPlayer(Player):
             self.log_dir = log_dir
         else:
             self.log_dir = None
+
+    def _create_completion(self, messages: list[dict]):
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "max_completion_tokens": self.max_completion_tokens,
+        }
+        if self.reasoning_effort is not None:
+            kwargs["reasoning_effort"] = self.reasoning_effort
+        return self.client.chat.completions.create(**kwargs)
 
     def choose_move(self, state, move_history: list[str]) -> int:
         fen = state_to_fen(state)
@@ -159,15 +214,11 @@ class OpenAIPlayer(Player):
         for attempt in range(self.max_retries):
             try:
                 msg = {"role": "user", "content": user_msg}
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    # max_completion_tokens=32000,
-                    # reasoning_effort="low",
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        msg,
-                    ],
-                )
+                messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    msg,
+                ]
+                resp = self._create_completion(messages)
                 if self.log_dir:
                     req_path = (
                         self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
@@ -229,18 +280,37 @@ class ModelProvider:
     model_name: str | None = None
     endpoint: str | None = None
     out_dir: str | Path | None = None
+    anthropic_adaptive_thinking: bool = False
+    anthropic_effort: str = "low"
+    anthropic_max_tokens: int | None = None
+    openai_reasoning_effort: str | None = None
+    openai_max_completion_tokens: int | None = None
 
 
 def make_player(model: ModelProvider, seed: int):
     if model.provider == "anthropic":
-        return AnthropicPlayer(model=model.model_name, out_dir=model.out_dir)
+        return AnthropicPlayer(
+            model=model.model_name,
+            out_dir=model.out_dir,
+            adaptive_thinking=model.anthropic_adaptive_thinking,
+            effort=model.anthropic_effort,
+            max_tokens=model.anthropic_max_tokens,
+        )
     elif model.provider == "openai":
         return OpenAIPlayer(
-            model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint
+            model=model.model_name,
+            out_dir=model.out_dir,
+            endpoint=model.endpoint,
+            reasoning_effort=model.openai_reasoning_effort,
+            max_completion_tokens=model.openai_max_completion_tokens,
         )
     elif model.provider == "gpt-oss":
         return OpenAIPlayer(
-            model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint
+            model=model.model_name,
+            out_dir=model.out_dir,
+            endpoint=model.endpoint,
+            reasoning_effort=model.openai_reasoning_effort,
+            max_completion_tokens=model.openai_max_completion_tokens,
         )
     elif model.provider == "random":
         return RandomPlayer(seed=seed)

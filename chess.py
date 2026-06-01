@@ -6,11 +6,33 @@ import pgx
 from pathlib import Path
 
 from util import state_to_fen, action_to_uci
-from player import make_player, ModelProvider
+from player import ANTHROPIC_MODEL_OPUS_4_8, make_player, ModelProvider
 
 env = pgx.make("chess")
 init = jax.jit(env.init)
 step = jax.jit(env.step)
+
+
+def _anthropic_provider(args, out_dir: Path) -> ModelProvider:
+    return ModelProvider(
+        provider="anthropic",
+        model_name=args.anthropic_model,
+        out_dir=out_dir,
+        anthropic_adaptive_thinking=args.anthropic_adaptive_thinking,
+        anthropic_effort=args.anthropic_effort,
+        anthropic_max_tokens=args.anthropic_max_tokens,
+    )
+
+
+def _openai_provider(args, out_dir: Path, provider: str) -> ModelProvider:
+    return ModelProvider(
+        provider=provider,
+        model_name=args.openai_model,
+        endpoint=args.openai_endpoint,
+        out_dir=out_dir,
+        openai_reasoning_effort=args.openai_reasoning_effort,
+        openai_max_completion_tokens=args.openai_max_completion_tokens,
+    )
 
 
 def main(args):
@@ -18,50 +40,20 @@ def main(args):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.white == "anthropic":
-        white_model = ModelProvider(
-            provider=args.white,
-            model_name=args.anthropic_model,
-            endpoint=None,
-            out_dir=out_dir,
-        )
+        white_model = _anthropic_provider(args, out_dir)
     elif args.white == "openai":
-        white_model = ModelProvider(
-            provider=args.white,
-            model_name=args.openai_model,
-            endpoint=args.openai_endpoint,
-            out_dir=out_dir,
-        )
+        white_model = _openai_provider(args, out_dir, "openai")
     elif args.white == "gpt-oss":
-        white_model = ModelProvider(
-            provider=args.white,
-            model_name=args.openai_model,
-            endpoint=args.openai_endpoint,
-            out_dir=out_dir,
-        )
+        white_model = _openai_provider(args, out_dir, "gpt-oss")
     elif args.white == "random":
         white_model = ModelProvider(provider=args.white, out_dir=out_dir)
 
     if args.black == "anthropic":
-        black_model = ModelProvider(
-            provider=args.black,
-            model_name=args.anthropic_model,
-            endpoint=None,
-            out_dir=out_dir,
-        )
+        black_model = _anthropic_provider(args, out_dir)
     elif args.black == "openai":
-        black_model = ModelProvider(
-            provider=args.black,
-            model_name=args.openai_model,
-            endpoint=args.openai_endpoint,
-            out_dir=out_dir,
-        )
+        black_model = _openai_provider(args, out_dir, "openai")
     elif args.black == "gpt-oss":
-        black_model = ModelProvider(
-            provider=args.black,
-            model_name=args.openai_model,
-            endpoint=args.openai_endpoint,
-            out_dir=out_dir,
-        )
+        black_model = _openai_provider(args, out_dir, "gpt-oss")
     elif args.black == "random":
         black_model = ModelProvider(provider=args.black, out_dir=out_dir)
 
@@ -159,10 +151,47 @@ if __name__ == "__main__":
         "--anthropic-model",
         type=str,
         default="claude-haiku-4-5",
-        help="Anthropic model name",
+        help=(
+            "Anthropic model id (e.g. claude-haiku-4-5, "
+            f"{ANTHROPIC_MODEL_OPUS_4_8})"
+        ),
+    )
+    parser.add_argument(
+        "--anthropic-adaptive-thinking",
+        action="store_true",
+        help=(
+            "Enable adaptive extended thinking (required style on Opus 4.7+ "
+            "when thinking is on; increases max_tokens budget)"
+        ),
+    )
+    parser.add_argument(
+        "--anthropic-effort",
+        type=str,
+        default="low",
+        choices=["low", "medium", "high", "xhigh", "max"],
+        help="Thinking depth for Opus/Sonnet when adaptive thinking is enabled",
+    )
+    parser.add_argument(
+        "--anthropic-max-tokens",
+        type=int,
+        default=None,
+        help="Output cap (default 64, or 4096 with --anthropic-adaptive-thinking)",
     )
     parser.add_argument(
         "--openai-model", type=str, default="gpt-5.4-nano", help="OpenAI model name"
+    )
+    parser.add_argument(
+        "--openai-reasoning-effort",
+        type=str,
+        default=None,
+        choices=["low", "medium", "high"],
+        help="Reasoning effort for OpenAI reasoning models (omit to disable)",
+    )
+    parser.add_argument(
+        "--openai-max-completion-tokens",
+        type=int,
+        default=None,
+        help="Output cap (default 64, or 4096 with --openai-reasoning-effort)",
     )
     parser.add_argument(
         "--openai-endpoint",
