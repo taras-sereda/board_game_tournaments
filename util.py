@@ -3,6 +3,8 @@ import pgx.experimental.chess as ec
 import pgx._src.games.chess as chess_core
 import jax.numpy as jnp
 
+UNC_ACTION = "???"
+
 def _build_action_uci_maps():
     """Build bidirectional mappings between PGX action indices and UCI move strings."""
     promo_chars = {0: "r", 1: "b", 2: "n"}
@@ -135,5 +137,5 @@ def action_to_uci(action: int, state) -> str:
     """Absolute (real-board) UCI for an action id, given whose turn it is."""
     uci = ACTION_TO_UCI.get(int(action))
     if uci is None:
-        return "???"
+        return UNC_ACTION
     return _flip_uci(uci) if _black_to_move(state) else uci

@@ -16,7 +16,7 @@ try:
 except ImportError:
     openai = None
 
-from util import state_to_fen, build_user_prompt, get_legal_uci_moves, SYSTEM_PROMPT, ACTION_TO_UCI, parse_uci_from_response, uci_to_action_id
+from util import UNC_ACTION, state_to_fen, build_user_prompt, get_legal_uci_moves, SYSTEM_PROMPT, ACTION_TO_UCI, parse_uci_from_response, uci_to_action_id
 
 class Player:
     def __init__(self):
@@ -175,15 +175,10 @@ class RandomPlayer(Player):
         self.rng, sub = jax.random.split(self.rng)
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         action = int(jax.random.categorical(sub, logits))
-        uci = ACTION_TO_UCI.get(action, "???")
+        uci = ACTION_TO_UCI.get(action, UNC_ACTION)
         print(f"  [Random] move: {uci}")
         return action
 
-    def dump_request(self, state, move_history: list[str]) -> str:
-        return "RandomPlayer does not use the state or move history to choose a move."
-
-    def dump_response(self, raw_response: str) -> str:
-        return "RandomPlayer does not have a raw response to parse."
 @dataclass
 class ModelProvider:
     provider: str
