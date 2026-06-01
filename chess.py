@@ -18,20 +18,50 @@ def main(args):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.white == "anthropic":
-        white_model = ModelProvider(provider=args.white, model_name=args.anthropic_model, endpoint=None, out_dir=out_dir)
+        white_model = ModelProvider(
+            provider=args.white,
+            model_name=args.anthropic_model,
+            endpoint=None,
+            out_dir=out_dir,
+        )
     elif args.white == "openai":
-        white_model = ModelProvider(provider=args.white, model_name=args.openai_model, endpoint=args.openai_endpoint, out_dir=out_dir)
+        white_model = ModelProvider(
+            provider=args.white,
+            model_name=args.openai_model,
+            endpoint=args.openai_endpoint,
+            out_dir=out_dir,
+        )
     elif args.white == "gpt-oss":
-        white_model = ModelProvider(provider=args.white, model_name=args.openai_model, endpoint=args.openai_endpoint, out_dir=out_dir)
+        white_model = ModelProvider(
+            provider=args.white,
+            model_name=args.openai_model,
+            endpoint=args.openai_endpoint,
+            out_dir=out_dir,
+        )
     elif args.white == "random":
         white_model = ModelProvider(provider=args.white, out_dir=out_dir)
 
     if args.black == "anthropic":
-        black_model = ModelProvider(provider=args.black, model_name=args.anthropic_model, endpoint=None, out_dir=out_dir)
+        black_model = ModelProvider(
+            provider=args.black,
+            model_name=args.anthropic_model,
+            endpoint=None,
+            out_dir=out_dir,
+        )
     elif args.black == "openai":
-        black_model = ModelProvider(provider=args.black, model_name=args.openai_model, endpoint=args.openai_endpoint, out_dir=out_dir)
+        black_model = ModelProvider(
+            provider=args.black,
+            model_name=args.openai_model,
+            endpoint=args.openai_endpoint,
+            out_dir=out_dir,
+        )
     elif args.black == "gpt-oss":
-        black_model = ModelProvider(provider=args.black, model_name=args.openai_model, endpoint=args.openai_endpoint, out_dir=out_dir)
+        black_model = ModelProvider(
+            provider=args.black,
+            model_name=args.openai_model,
+            endpoint=args.openai_endpoint,
+            out_dir=out_dir,
+        )
     elif args.black == "random":
         black_model = ModelProvider(provider=args.black, out_dir=out_dir)
 
@@ -83,7 +113,9 @@ def main(args):
         state.save_svg(f"{out_dir}/{args.save_prefix}final.svg")
         # Save game log
         white_reward = float(state.rewards[white_agent])
-        result = "white" if white_reward == 1 else "black" if white_reward == -1 else "draw"
+        result = (
+            "white" if white_reward == 1 else "black" if white_reward == -1 else "draw"
+        )
         log = {
             "white": white_player.name,
             "black": black_player.name,
@@ -99,23 +131,48 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LLM vs LLM chess via PGX")
     parser.add_argument("--seed", type=int, default=0, help="PRNG seed")
-    parser.add_argument("--save-prefix", type=str, default="state_", help="Prefix for saved SVGs")
-    parser.add_argument("--out-dir", type=str, default="./states", help="Directory to save SVG files")
-    parser.add_argument("--no-save", action="store_true", help="Do not save SVG files during play")
+    parser.add_argument(
+        "--save-prefix", type=str, default="state_", help="Prefix for saved SVGs"
+    )
+    parser.add_argument(
+        "--out-dir", type=str, default="./states", help="Directory to save SVG files"
+    )
+    parser.add_argument(
+        "--no-save", action="store_true", help="Do not save SVG files during play"
+    )
 
-    parser.add_argument("--white", type=str, default="anthropic",
-                        choices=["anthropic", "openai", "gpt-oss", "random"],
-                        help="Player for White (default: anthropic)")
-    parser.add_argument("--black", type=str, default="openai",
-                        choices=["anthropic", "openai", "gpt-oss", "random"],
-                        help="Player for Black (default: openai)")
-    parser.add_argument("--anthropic-model", type=str, default="claude-haiku-4-5",
-                        help="Anthropic model name")
-    parser.add_argument("--openai-model", type=str, default="gpt-5.4-nano",
-                        help="OpenAI model name")
-    parser.add_argument("--openai-endpoint", type=str, default=None,
-                        help="Optional OpenAI-compatible endpoint URL (use for self-hosted vLLM/GPT OSS)")
-    parser.add_argument("--max-moves", type=int, default=None, help="Maximum number of moves to play")
+    parser.add_argument(
+        "--white",
+        type=str,
+        default="anthropic",
+        choices=["anthropic", "openai", "gpt-oss", "random"],
+        help="Player for White (default: anthropic)",
+    )
+    parser.add_argument(
+        "--black",
+        type=str,
+        default="openai",
+        choices=["anthropic", "openai", "gpt-oss", "random"],
+        help="Player for Black (default: openai)",
+    )
+    parser.add_argument(
+        "--anthropic-model",
+        type=str,
+        default="claude-haiku-4-5",
+        help="Anthropic model name",
+    )
+    parser.add_argument(
+        "--openai-model", type=str, default="gpt-5.4-nano", help="OpenAI model name"
+    )
+    parser.add_argument(
+        "--openai-endpoint",
+        type=str,
+        default=None,
+        help="Optional OpenAI-compatible endpoint URL (use for self-hosted vLLM/GPT OSS)",
+    )
+    parser.add_argument(
+        "--max-moves", type=int, default=None, help="Maximum number of moves to play"
+    )
 
     args = parser.parse_args()
     main(args)

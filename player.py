@@ -16,7 +16,17 @@ try:
 except ImportError:
     openai = None
 
-from util import UNC_ACTION, state_to_fen, build_user_prompt, get_legal_uci_moves, SYSTEM_PROMPT, ACTION_TO_UCI, parse_uci_from_response, uci_to_action_id
+from util import (
+    UNC_ACTION,
+    state_to_fen,
+    build_user_prompt,
+    get_legal_uci_moves,
+    SYSTEM_PROMPT,
+    ACTION_TO_UCI,
+    parse_uci_from_response,
+    uci_to_action_id,
+)
+
 
 class Player:
     def __init__(self):
@@ -34,8 +44,12 @@ class Player:
 
 
 class AnthropicPlayer(Player):
-
-    def __init__(self, model: str = "claude-haiku-4-5", max_retries: int = 3, out_dir: str | Path | None = None):
+    def __init__(
+        self,
+        model: str = "claude-haiku-4-5",
+        max_retries: int = 3,
+        out_dir: str | Path | None = None,
+    ):
         super().__init__()
         self.model_provider = "Anthropic"
         if anthropic is None:
@@ -67,8 +81,13 @@ class AnthropicPlayer(Player):
                     messages=[msg],
                 )
                 if self.log_dir:
-                    req_path = self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
-                    resp_path = self.log_dir / f"{self.name}_response_{int(time.time_ns())}.json"
+                    req_path = (
+                        self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
+                    )
+                    resp_path = (
+                        self.log_dir
+                        / f"{self.name}_response_{int(time.time_ns())}.json"
+                    )
                     self.dump_data(msg, req_path)
                     self.dump_data(resp, resp_path)
                 raw = resp.content[0].text
@@ -79,18 +98,27 @@ class AnthropicPlayer(Player):
                         print(f"  [{self.model_provider}] move: {uci}")
                         return aid
                     else:
-                        print(f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
+                        print(
+                            f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt + 1}/{self.max_retries})"
+                        )
                 else:
-                    print(f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
+                    print(
+                        f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt + 1}/{self.max_retries})"
+                    )
             except Exception as e:
-                print(f"  [{self.model_provider}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
+                print(
+                    f"  [{self.model_provider}] API error: {e}, retrying ({attempt + 1}/{self.max_retries})"
+                )
                 time.sleep(2)
 
         # Fallback: pick a random legal move
-        print(f"  [{self.model_provider}] all retries failed, falling back to random move")
+        print(
+            f"  [{self.model_provider}] all retries failed, falling back to random move"
+        )
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         key = jax.random.key(time.time_ns() % (2**32 - 1))
         return int(jax.random.categorical(key, logits))
+
 
 class OpenAIPlayer(Player):
     def __init__(
@@ -127,7 +155,6 @@ class OpenAIPlayer(Player):
         legal_moves = get_legal_uci_moves(state)
         color = "White" if fen.split()[1] == "w" else "Black"
         user_msg = build_user_prompt(fen, legal_moves, color, move_history)
-        
 
         for attempt in range(self.max_retries):
             try:
@@ -142,8 +169,13 @@ class OpenAIPlayer(Player):
                     ],
                 )
                 if self.log_dir:
-                    req_path = self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
-                    resp_path = self.log_dir / f"{self.name}_response_{int(time.time_ns())}.json"
+                    req_path = (
+                        self.log_dir / f"{self.name}_request_{int(time.time_ns())}.json"
+                    )
+                    resp_path = (
+                        self.log_dir
+                        / f"{self.name}_response_{int(time.time_ns())}.json"
+                    )
                     self.dump_data(msg, req_path)
                     self.dump_data(resp, resp_path)
                 raw = resp.choices[0].message.content
@@ -154,14 +186,22 @@ class OpenAIPlayer(Player):
                         print(f"  [{self.model_provider}] move: {uci}")
                         return aid
                     else:
-                        print(f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt+1}/{self.max_retries})")
+                        print(
+                            f"  [{self.model_provider}] illegal move '{uci}', retrying ({attempt + 1}/{self.max_retries})"
+                        )
                 else:
-                    print(f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt+1}/{self.max_retries})")
+                    print(
+                        f"  [{self.model_provider}] could not parse '{raw}', retrying ({attempt + 1}/{self.max_retries})"
+                    )
             except Exception as e:
-                print(f"  [{self.model_provider}] API error: {e}, retrying ({attempt+1}/{self.max_retries})")
+                print(
+                    f"  [{self.model_provider}] API error: {e}, retrying ({attempt + 1}/{self.max_retries})"
+                )
                 time.sleep(2)
 
-        print(f"  [{self.model_provider}] all retries failed, falling back to random move")
+        print(
+            f"  [{self.model_provider}] all retries failed, falling back to random move"
+        )
         logits = jnp.log(state.legal_action_mask.astype(jnp.float32))
         key = jax.random.key(time.time_ns() % (2**32 - 1))
         return int(jax.random.categorical(key, logits))
@@ -169,6 +209,7 @@ class OpenAIPlayer(Player):
 
 class RandomPlayer(Player):
     """Fallback random player for testing without API keys."""
+
     def __init__(self, seed: int = 42):
         self.rng = jax.random.key(seed)
         self.name = "Random"
@@ -181,6 +222,7 @@ class RandomPlayer(Player):
         print(f"  [Random] move: {uci}")
         return action
 
+
 @dataclass
 class ModelProvider:
     provider: str
@@ -188,13 +230,18 @@ class ModelProvider:
     endpoint: str | None = None
     out_dir: str | Path | None = None
 
+
 def make_player(model: ModelProvider, seed: int):
     if model.provider == "anthropic":
         return AnthropicPlayer(model=model.model_name, out_dir=model.out_dir)
     elif model.provider == "openai":
-        return OpenAIPlayer(model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint)
+        return OpenAIPlayer(
+            model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint
+        )
     elif model.provider == "gpt-oss":
-        return OpenAIPlayer(model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint)
+        return OpenAIPlayer(
+            model=model.model_name, out_dir=model.out_dir, endpoint=model.endpoint
+        )
     elif model.provider == "random":
         return RandomPlayer(seed=seed)
     else:
