@@ -134,8 +134,10 @@ def build_user_prompt(
     return "\n".join(parts)
 
 
-def parse_uci_from_response(text: str) -> str | None:
+def parse_uci_from_response(text: str | None) -> str | None:
     """Extract a UCI move from LLM response text."""
+    if not text:
+        return None
     text = text.strip()
     # Try the whole response as a move
     match = re.match(r"^([a-h][1-8][a-h][1-8][qrbn]?)$", text)

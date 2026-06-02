@@ -43,6 +43,17 @@ def _anthropic_response_text(resp) -> str:
     raise ValueError("Anthropic response has no text block")
 
 
+def _openai_message_text(message) -> str | None:
+    """Text from OpenAI/vLLM chat completion (incl. GPT-OSS reasoning fields)."""
+    if message.content:
+        return message.content
+    for attr in ("reasoning", "reasoning_content"):
+        value = getattr(message, attr, None)
+        if value:
+            return value
+    return None
+
+
 class Player:
     def __init__(self):
         self.name = self.__class__.__name__.lower()
@@ -92,7 +103,7 @@ class AnthropicPlayer(Player):
         else:
             self.log_dir = None
 
-    def _create_message(self, user_msg: str):
+    def _message_kwargs(self, user_msg: str) -> dict:
         kwargs = {
             "model": self.model,
             "max_tokens": self.max_tokens,
@@ -103,7 +114,11 @@ class AnthropicPlayer(Player):
             kwargs["thinking"] = {"type": "adaptive"}
             if _anthropic_supports_effort(self.model):
                 kwargs["output_config"] = {"effort": self.effort}
-        return self.client.messages.create(**kwargs)
+        return kwargs
+
+    def _create_message(self, user_msg: str):
+        with self.client.messages.stream(**self._message_kwargs(user_msg)) as stream:
+            return stream.get_final_message()
 
     def choose_move(self, state, move_history: list[str]) -> int:
         fen = state_to_fen(state)
@@ -144,7 +159,6 @@ class AnthropicPlayer(Player):
                 print(
                     f"  [{self.model_provider}] API error: {e}, retrying ({attempt + 1}/{self.max_retries})"
                 )
-                time.sleep(2)
 
         # Fallback: pick a random legal move
         print(
@@ -229,7 +243,16 @@ class OpenAIPlayer(Player):
                     )
                     self.dump_data(msg, req_path)
                     self.dump_data(resp, resp_path)
-                raw = resp.choices[0].message.content
+                message = resp.choices[0].message
+                raw = _openai_message_text(message)
+                if raw is None:
+                    finish = resp.choices[0].finish_reason
+                    print(
+                        f"  [{self.model_provider}] empty response "
+                        f"(content and reasoning; finish_reason={finish!r}), "
+                        f"retrying ({attempt + 1}/{self.max_retries})"
+                    )
+                    continue
                 uci = parse_uci_from_response(raw)
                 if uci:
                     aid = uci_to_action_id(uci, state)
@@ -248,7 +271,6 @@ class OpenAIPlayer(Player):
                 print(
                     f"  [{self.model_provider}] API error: {e}, retrying ({attempt + 1}/{self.max_retries})"
                 )
-                time.sleep(2)
 
         print(
             f"  [{self.model_provider}] all retries failed, falling back to random move"
