@@ -5,6 +5,7 @@ import jax.numpy as jnp
 
 UNC_ACTION = "???"
 
+
 def _build_action_uci_maps():
     """Build bidirectional mappings between PGX action indices and UCI move strings."""
     promo_chars = {0: "r", 1: "b", 2: "n"}
@@ -37,7 +38,26 @@ def _build_action_uci_maps():
 
     return action_to_uci, uci_to_action
 
+
 ACTION_TO_UCI, UCI_TO_ACTION = _build_action_uci_maps()
+
+
+def _black_to_move(state) -> bool:
+    return state_to_fen(state).split()[1] == "b"
+
+
+def _flip_uci(uci: str) -> str:
+    # PGX encodes actions in the mover's frame (vertical mirror: file kept,
+    # rank -> 9-rank). Only the square coords flip; promo suffix is unchanged.
+    return uci[0] + str(9 - int(uci[1])) + uci[2] + str(9 - int(uci[3])) + uci[4:]
+
+
+def action_to_uci(action: int, state) -> str:
+    """Absolute (real-board) UCI for an action id, given whose turn it is."""
+    uci = ACTION_TO_UCI.get(int(action))
+    if uci is None:
+        return UNC_ACTION
+    return _flip_uci(uci) if _black_to_move(state) else uci
 
 
 def get_legal_uci_moves(state):
@@ -102,7 +122,9 @@ Rules:
 - Just the move, nothing else."""
 
 
-def build_user_prompt(fen: str, legal_moves: list[str], color: str, move_history: list[str]) -> str:
+def build_user_prompt(
+    fen: str, legal_moves: list[str], color: str, move_history: list[str]
+) -> str:
     parts = [f"Position (FEN): {fen}"]
     if move_history:
         parts.append(f"Move history: {' '.join(move_history)}")
@@ -112,8 +134,10 @@ def build_user_prompt(fen: str, legal_moves: list[str], color: str, move_history
     return "\n".join(parts)
 
 
-def parse_uci_from_response(text: str) -> str | None:
+def parse_uci_from_response(text: str | None) -> str | None:
     """Extract a UCI move from LLM response text."""
+    if not text:
+        return None
     text = text.strip()
     # Try the whole response as a move
     match = re.match(r"^([a-h][1-8][a-h][1-8][qrbn]?)$", text)
@@ -124,18 +148,3 @@ def parse_uci_from_response(text: str) -> str | None:
     if match:
         return match.group(1)
     return None
-
-def _black_to_move(state) -> bool:
-    return state_to_fen(state).split()[1] == "b"
-
-def _flip_uci(uci: str) -> str:
-    # PGX encodes actions in the mover's frame (vertical mirror: file kept,
-    # rank -> 9-rank). Only the square coords flip; promo suffix is unchanged.
-    return uci[0] + str(9 - int(uci[1])) + uci[2] + str(9 - int(uci[3])) + uci[4:]
-
-def action_to_uci(action: int, state) -> str:
-    """Absolute (real-board) UCI for an action id, given whose turn it is."""
-    uci = ACTION_TO_UCI.get(int(action))
-    if uci is None:
-        return UNC_ACTION
-    return _flip_uci(uci) if _black_to_move(state) else uci
